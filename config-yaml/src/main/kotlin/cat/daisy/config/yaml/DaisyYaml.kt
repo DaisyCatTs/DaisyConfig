@@ -3,7 +3,9 @@ package cat.daisy.config.yaml
 import cat.daisy.config.DaisyConfigCodec
 import cat.daisy.config.DaisyConfigHandle
 import cat.daisy.config.DaisyConfigNode
+import cat.daisy.config.DaisyDecodeResult
 import cat.daisy.config.DaisyReloadResult
+import cat.daisy.config.yaml.internal.DaisyMutableYamlSupport
 import org.bukkit.configuration.ConfigurationSection
 import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.plugin.java.JavaPlugin
@@ -13,12 +15,16 @@ public object DaisyYaml {
     public fun <T> load(
         file: File,
         codec: DaisyConfigCodec<T>,
+    ): DaisyReloadResult<T> = decode(YamlConfiguration.loadConfiguration(file), codec)
+
+    public fun <T> decode(
+        value: Any?,
+        codec: DaisyConfigCodec<T>,
     ): DaisyReloadResult<T> {
-        val yaml = YamlConfiguration.loadConfiguration(file)
-        val result = codec.decode(YamlConfigNode(yaml), "")
+        val result = codec.decode(YamlConfigNode(value), "")
         return when (result) {
-            is cat.daisy.config.DaisyDecodeResult.Success -> DaisyReloadResult.Success(result.value, result.warnings)
-            is cat.daisy.config.DaisyDecodeResult.Failure -> DaisyReloadResult.Failure(result.errors, null)
+            is DaisyDecodeResult.Success -> DaisyReloadResult.Success(result.value, result.warnings)
+            is DaisyDecodeResult.Failure -> DaisyReloadResult.Failure(result.errors, null)
         }
     }
 
@@ -33,6 +39,17 @@ public object DaisyYaml {
         }
         return DaisyYamlConfigHandle(file = file, codec = codec, currentValue = initial.value)
     }
+
+    public fun mutableTree(file: File): LinkedHashMap<String, Any?> = DaisyMutableYamlSupport.load(file)
+
+    public fun mutableTree(text: String): LinkedHashMap<String, Any?> = DaisyMutableYamlSupport.load(text)
+
+    public fun writeTree(
+        file: File,
+        root: Map<String, Any?>,
+    ) {
+        DaisyMutableYamlSupport.save(file, root)
+    }
 }
 
 private class DaisyYamlConfigHandle<T>(
@@ -45,13 +62,12 @@ private class DaisyYamlConfigHandle<T>(
 
     override fun reload(): DaisyReloadResult<T> {
         val yaml = YamlConfiguration.loadConfiguration(file)
-        val result = codec.decode(YamlConfigNode(yaml), "")
-        return when (result) {
-            is cat.daisy.config.DaisyDecodeResult.Success -> {
+        return when (val result = DaisyYaml.decode(yaml, codec)) {
+            is DaisyReloadResult.Success -> {
                 current = result.value
-                DaisyReloadResult.Success(result.value, result.warnings)
+                result
             }
-            is cat.daisy.config.DaisyDecodeResult.Failure -> DaisyReloadResult.Failure(result.errors, current)
+            is DaisyReloadResult.Failure -> DaisyReloadResult.Failure(result.errors, current)
         }
     }
 }
@@ -83,7 +99,7 @@ public fun JavaPlugin.ensureDefaultConfigResources(vararg resources: String) {
     resources.forEach { resource -> ensureDefaultConfigResource(resource) }
 }
 
-private class YamlConfigNode(
+public class YamlConfigNode(
     private val value: Any?,
 ) : DaisyConfigNode {
     override fun isNull(): Boolean = value == null

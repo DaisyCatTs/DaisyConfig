@@ -1,9 +1,0 @@
-icon: diamond sword
-flags:
-  - hide enchants
-  - hide attributes
-enchantment: sharpness
-effect: slow falling
-feedback:
-  sound: entity player levelup
-  message: "<green>Profile opened from the DaisyConfig bundle.</green>"

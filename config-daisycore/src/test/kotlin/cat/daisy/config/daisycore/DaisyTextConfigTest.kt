@@ -4,6 +4,11 @@ import cat.daisy.config.DaisyConfigBundleHandle
 import cat.daisy.config.DaisyConfigHandle
 import cat.daisy.config.DaisyReloadResult
 import cat.daisy.config.DaisyConfigNode
+import cat.daisy.config.managed.DaisyManagedConfigHandle
+import cat.daisy.config.managed.DaisyManagedConfigMetadata
+import cat.daisy.config.managed.DaisyManagedReloadResult
+import cat.daisy.config.managed.DaisyManagedYamlFile
+import cat.daisy.config.stringCodec
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -69,6 +74,29 @@ class DaisyTextConfigTest {
 
         assertEquals("<gold>Bundle Reloaded</gold>", textSource.text("messages.ready"))
     }
+
+    @Test
+    fun `managed text handle stays live and does not expand placeholders`() {
+        val file =
+            DaisyManagedYamlFile(
+                id = "lang",
+                path = "lang.yml",
+                codec = daisyTextConfigCodec(),
+            )
+        val handle =
+            MutableManagedTextHandle(
+                file = file,
+                current = SimpleTextConfig(mapOf("messages.ready" to "<green>Hello %player_name%</green>")),
+            )
+
+        val textSource = handle.asDaisyTextSource()
+
+        assertEquals("<green>Hello %player_name%</green>", textSource.text("messages.ready"))
+
+        handle.current = SimpleTextConfig(mapOf("messages.ready" to "<blue>Reloaded %player_name%</blue>"))
+
+        assertEquals("<blue>Reloaded %player_name%</blue>", textSource.text("messages.ready"))
+    }
 }
 
 private data class SimpleTextConfig(
@@ -89,6 +117,27 @@ private class MutableTextBundleHandle(
     override var current: DaisyTextConfig,
 ) : DaisyConfigBundleHandle<DaisyTextConfig> {
     override fun reload(): DaisyReloadResult<DaisyTextConfig> = DaisyReloadResult.Success(current)
+}
+
+private class MutableManagedTextHandle(
+    override val file: DaisyManagedYamlFile<DaisyTextConfig>,
+    override var current: DaisyTextConfig,
+) : DaisyManagedConfigHandle<DaisyTextConfig> {
+    override val metadata: DaisyManagedConfigMetadata =
+        DaisyManagedConfigMetadata(
+            path = file.path,
+            versionKey = file.versionKey,
+            currentVersion = file.currentVersion,
+            diskVersion = file.currentVersion,
+        )
+
+    override fun reload(): DaisyReloadResult<DaisyTextConfig> = DaisyReloadResult.Success(current)
+
+    override fun migrate(): DaisyManagedReloadResult<DaisyTextConfig> =
+        DaisyManagedReloadResult.Success(
+            value = current,
+            report = cat.daisy.config.managed.DaisyManagedMigrationReport(),
+        )
 }
 
 private class TestNode(

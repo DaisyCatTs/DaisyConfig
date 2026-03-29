@@ -1,0 +1,4 @@
+config_version: 1
+messages:
+  warp:
+    ready: "<green>Warp module loaded.</green>"

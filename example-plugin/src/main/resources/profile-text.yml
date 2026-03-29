@@ -1,9 +1,0 @@
-menus:
-  profile:
-    title: "<gradient:#7dd3fc:#c4b5fd>Profile</gradient>"
-    card:
-      name: "<gradient:#7dd3fc:#c4b5fd><player></gradient>"
-      lore:
-        - "<gray>Everything on this screen is config-backed.</gray>"
-        - "<gray>MiniMessage stays in config.</gray>"
-        - "<gray>DaisyCore still owns rendering.</gray>"

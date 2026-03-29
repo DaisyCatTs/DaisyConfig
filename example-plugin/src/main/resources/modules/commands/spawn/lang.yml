@@ -1,0 +1,5 @@
+config_version: 1
+messages:
+  spawn:
+    ready: "<green>Spawn module ready after %delay%s.</green>"
+    reloaded: "<green>Spawn module reloaded.</green>"

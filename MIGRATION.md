@@ -1,192 +1,201 @@
 # DaisyConfig Migration
 
-## Why DaisyConfig exists
+## Why Phase 3 exists
 
-DaisyConfig replaces the plugin-local layer that usually grows around:
+Phase 2 removed most plugin-local decode boilerplate.
 
-- raw Bukkit YAML lookups
-- manual nested-section traversal
-- fragile reload code
-- repeated enum parsing wrappers
-- one-off DaisyCore text adapters
+Phase 3 removes the next layer of plugin-local config plumbing:
 
-## Replace raw config lookups
+- manual `saveResource(...)`
+- manual missing-key merge
+- manual `config_version` handling
+- hardcoded module file maps
+- startup/reload migration code
+- plugin-local `settings.yml` + `lang.yml` registries
+
+## Replace plugin-local config services
+
+Typical local config services usually own:
+
+- file creation
+- reload orchestration
+- one-off migration logic
+- `modules/<category>/<module>/...` discovery
+- lang/settings pairing
+
+Those responsibilities now belong in DaisyConfig.
+
+## Replace manual managed-file lifecycle
 
 Before:
 
 ```kotlin
-val icon = plugin.config.getString("icon") ?: "STONE"
-val title = plugin.config.getString("sidebar_title") ?: "Profile"
+saveResource("settings.yml", false)
+val file = File(dataFolder, "settings.yml")
+val yaml = YamlConfiguration.loadConfiguration(file)
+val version = yaml.getInt("config_version", 1)
+// merge defaults
+// rename keys
+// bump version
+// save again
 ```
 
 After:
 
 ```kotlin
-val config = handle.current
-val icon = config.icon
-val title = config.sidebarTitle
+val settings =
+    DaisyManagedYamlFile(
+        id = "settings",
+        path = "settings.yml",
+        codec = settingsCodec,
+        currentVersion = 2,
+        migrations = listOf(
+            DaisyYamlMigrations.move(1, 2, "spawn-delay", "spawn.delay"),
+        ),
+    )
+
+val handle = plugin.managedYamlConfigHandle(settings)
 ```
 
-## Replace manual nested section traversal
+## Replace hardcoded module maps
 
 Before:
 
-```kotlin
-val section = plugin.config.getConfigurationSection("feedback")
-val sound = DaisySounds.parse(section?.getString("sound") ?: "entity_player_levelup")
-val message = section?.getString("message") ?: "<green>Saved.</green>"
-```
+- keep a `Map<String, File>` for module settings
+- keep another map for lang files
+- reload them manually
+- hope one failure does not leave the runtime in a mixed state
 
 After:
 
 ```kotlin
-data class FeedbackConfig(
-    val sound: Sound,
-    val message: String,
-)
-
-val feedbackCodec =
-    objectCodec {
-        FeedbackConfig(
-            sound = required("sound", soundCodec()),
-            message = defaulted("message", stringCodec(), "<green>Saved.</green>"),
+val registry =
+    DaisyModules.load(plugin) {
+        module(
+            DaisyModuleDefinition(
+                category = "commands",
+                module = "spawn",
+                settings = spawnSettingsFile,
+                lang = spawnLangFile,
+            ),
         )
     }
+```
 
-val profileCodec =
-    objectCodec {
-        ProfileUiConfig(
-            icon = required("icon", materialCodec()),
-            feedback = section("feedback", feedbackCodec),
-        )
+Then:
+
+```kotlin
+val spawn = registry.require<SpawnSettings>("commands", "spawn")
+val settings = spawn.current.settings
+val textSource = spawn.textSource
+```
+
+## Replace local lang accessors
+
+Before:
+
+```kotlin
+fun text(key: String): String? = langYaml.getString(key)
+```
+
+After:
+
+```kotlin
+val textSource = moduleHandle.textSource
+val value = textSource.text("messages.spawn.ready")
+```
+
+`DaisyConfig` still does not execute placeholders directly.
+
+## Replace local reload orchestration
+
+Before:
+
+- reload settings
+- reload lang
+- merge reports yourself
+- decide whether runtime state should roll forward
+
+After:
+
+```kotlin
+when (val result = registry.reloadAll()) {
+    is DaisyManagedBundleReloadResult.Success -> {
+        result.reports.forEach { report ->
+            logger.info("Merged keys: ${report.mergedMissingKeys}")
+        }
     }
-```
-
-## Replace manual enum parsing
-
-Before:
-
-```kotlin
-val material = DaisyMaterials.parse(plugin.config.getString("icon") ?: "stone")
-```
-
-After:
-
-```kotlin
-icon = required("icon", materialCodec())
-```
-
-## Replace fragile reload logic
-
-Before:
-
-- reload file
-- parse fields manually
-- hope the runtime does not end up half-updated
-
-After:
-
-```kotlin
-when (val result = handle.reload()) {
-    is DaisyReloadResult.Success -> logger.info("Reloaded.")
-    is DaisyReloadResult.Failure -> logger.warning(result.errors.joinToString { "${it.path}: ${it.message}" })
+    is DaisyManagedBundleReloadResult.Failure -> {
+        result.errors.forEach { error ->
+            logger.warning("${error.path}: ${error.message}")
+        }
+    }
 }
 ```
 
-## Replace ad hoc multi-file reload orchestration
+## Replace local version bump logic
 
 Before:
 
-- reload `profile-ui.yml`
-- reload `lang.yml`
-- hope your runtime state stays coherent if one succeeds and one fails
+- read `config_version`
+- treat missing versions specially
+- rename/remove keys by hand
+- write the updated version back
 
 After:
 
 ```kotlin
-val featureBundle =
-    plugin.yamlConfigBundleHandle {
-        ProfileFeatureConfig(
-            ui = file("profile-ui.yml", profileUiCodec),
-            layout = file("profile-layout.yml", profileLayoutCodec),
-        )
-    }
+val file =
+    DaisyManagedYamlFile(
+        id = "spawn",
+        path = "modules/commands/spawn/settings.yml",
+        codec = spawnCodec,
+        currentVersion = 2,
+        migrations = listOf(
+            DaisyYamlMigrations.move(1, 2, "spawn-delay", "spawn.delay"),
+        ),
+    )
 ```
 
-`DaisyConfigBundleHandle<T>` gives one logical current value and preserves the previous good state on reload failure.
+Managed YAML now handles:
 
-## Replace scattered validation checks
+- missing version treated as `1`
+- ordered migration validation
+- write-back of the final version key
+- migration reporting
+
+## Replace manual default merge logic
 
 Before:
 
-- blank checks near command handlers
-- row bounds checks near menu builders
-- slot bounds checks in ad hoc utility code
+- compare live file against resource defaults manually
+- add keys carefully without overwriting user edits
 
 After:
 
-```kotlin
-val menuCodec =
-    objectCodec {
-        MenuConfig(
-            rows = defaulted("rows", intCodec(), 3),
-            profileSlot = defaulted("profile_slot", intCodec(), 13),
-        )
-    }.validate { config ->
-        buildList {
-            addAll(DaisyValidation.intRange("menu.rows", config.rows, 1, 6))
-            addAll(
-                DaisyValidation.require(
-                    condition = config.profileSlot in 0 until (config.rows * 9),
-                    path = "menu.profile_slot",
-                    message = "Slot must be within the menu size.",
-                ),
-            )
-        }
-    }
-```
-
-## Replace ad hoc DaisyCore text adapters
-
-Before:
-
-- plugin-local `DaisyTextSource`
-- manual flattening
-- repeated `getStringList(...)`
-
-After:
+Use the default managed merge policy:
 
 ```kotlin
-val langHandle = yamlTextConfigHandle(plugin, "lang.yml")
-val textSource = langHandle.current.asDaisyTextSource()
+mergePolicy = DaisyYamlMergePolicy.AddMissingKeys
 ```
 
-For multiple text packs:
+This adds missing deep keys from bundled defaults while preserving:
 
-```kotlin
-val textBundle =
-    plugin.yamlConfigBundleHandle {
-        mergeTextConfigs(
-            file("lang.yml", daisyTextConfigCodec()),
-            file("profile-text.yml", daisyTextConfigCodec()),
-        )
-    }
+- user overrides
+- unknown user keys
 
-val textSource = textBundle.asDaisyTextSource()
-```
+## Keep low-level APIs when you need them
 
-## Replace repetitive first-run resource copying
+Phase 3 does not remove the simple APIs:
 
-Before:
+- `DaisyYaml.load(...)`
+- `DaisyYaml.handle(...)`
+- `yamlConfigHandle(...)`
+- `yamlConfigBundleHandle(...)`
 
-```kotlin
-ensureDefaultConfigResource("config.yml")
-ensureDefaultConfigResource("lang.yml")
-ensureDefaultConfigResource("menus.yml")
-```
+Use managed YAML when:
 
-After:
-
-```kotlin
-ensureDefaultConfigResources("config.yml", "lang.yml", "menus.yml")
-```
+- files need migration
+- files need missing-key merge
+- files follow a module convention
+- you want config lifecycle owned by DaisyConfig itself

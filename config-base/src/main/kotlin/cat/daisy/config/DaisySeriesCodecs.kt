@@ -1,6 +1,9 @@
 package cat.daisy.config
 
+import cat.daisy.series.attribute.DaisyAttributes
 import cat.daisy.series.biome.DaisyBiomes
+import cat.daisy.series.blockface.DaisyBlockFaces
+import cat.daisy.series.difficulty.DaisyDifficulties
 import cat.daisy.series.enchantment.DaisyEnchantments
 import cat.daisy.series.entity.DaisyEntities
 import cat.daisy.series.gamemode.DaisyGameModes
@@ -10,14 +13,19 @@ import cat.daisy.series.particle.DaisyParticles
 import cat.daisy.series.potion.DaisyPotions
 import cat.daisy.series.sound.DaisySounds
 import cat.daisy.series.statistic.DaisyStatistics
+import cat.daisy.series.villagerprofession.DaisyVillagerProfessions
+import org.bukkit.Difficulty
 import org.bukkit.GameMode
 import org.bukkit.Material
 import org.bukkit.Particle
 import org.bukkit.Sound
 import org.bukkit.Statistic
+import org.bukkit.attribute.Attribute
 import org.bukkit.block.Biome
+import org.bukkit.block.BlockFace
 import org.bukkit.enchantments.Enchantment
 import org.bukkit.entity.EntityType
+import org.bukkit.entity.Villager
 import org.bukkit.inventory.ItemFlag
 import org.bukkit.potion.PotionEffectType
 
@@ -29,7 +37,16 @@ public fun biomeCodec(): DaisyConfigCodec<Biome> = parserBackedCodec("biome", Da
 
 public fun entityTypeCodec(): DaisyConfigCodec<EntityType> = parserBackedCodec("entity type", DaisyEntities::parseOrNull)
 
+public fun villagerProfessionCodec(): DaisyConfigCodec<Villager.Profession> =
+    parserBackedCodec("villager profession", DaisyVillagerProfessions::parseOrNull)
+
+public fun attributeCodec(): DaisyConfigCodec<Attribute> = parserBackedCodec("attribute", DaisyAttributes::parseOrNull)
+
 public fun gameModeCodec(): DaisyConfigCodec<GameMode> = parserBackedCodec("game mode", DaisyGameModes::parseOrNull)
+
+public fun difficultyCodec(): DaisyConfigCodec<Difficulty> = parserBackedCodec("difficulty", DaisyDifficulties::parseOrNull)
+
+public fun blockFaceCodec(): DaisyConfigCodec<BlockFace> = parserBackedCodec("block face", DaisyBlockFaces::parseOrNull)
 
 public fun particleCodec(): DaisyConfigCodec<Particle> = parserBackedCodec("particle", DaisyParticles::parseOrNull)
 

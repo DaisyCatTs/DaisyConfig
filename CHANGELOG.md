@@ -1,4 +1,6 @@
 ## [Unreleased]
+
+## [0.2.0] - 2026-03-29
 ### Added
 - `config-managed` for managed YAML files with lifecycle-aware creation, merge, and migration
 - `config-modules` for first-class `settings.yml` + `lang.yml` module bundles

@@ -3,13 +3,16 @@ package cat.daisy.config
 import cat.daisy.series.attribute.DaisyAttributes
 import cat.daisy.series.biome.DaisyBiomes
 import cat.daisy.series.blockface.DaisyBlockFaces
+import cat.daisy.series.damagecause.DaisyDamageCauses
 import cat.daisy.series.difficulty.DaisyDifficulties
 import cat.daisy.series.enchantment.DaisyEnchantments
 import cat.daisy.series.entity.DaisyEntities
 import cat.daisy.series.gamemode.DaisyGameModes
 import cat.daisy.series.itemflag.DaisyItemFlags
 import cat.daisy.series.material.DaisyMaterials
+import cat.daisy.series.operation.DaisyOperations
 import cat.daisy.series.particle.DaisyParticles
+import cat.daisy.series.patterntype.DaisyPatternTypes
 import cat.daisy.series.potion.DaisyPotions
 import cat.daisy.series.sound.DaisySounds
 import cat.daisy.series.statistic.DaisyStatistics
@@ -21,10 +24,13 @@ import org.bukkit.Particle
 import org.bukkit.Sound
 import org.bukkit.Statistic
 import org.bukkit.attribute.Attribute
+import org.bukkit.attribute.AttributeModifier
 import org.bukkit.block.Biome
 import org.bukkit.block.BlockFace
+import org.bukkit.block.banner.PatternType
 import org.bukkit.enchantments.Enchantment
 import org.bukkit.entity.EntityType
+import org.bukkit.event.entity.EntityDamageEvent
 import org.bukkit.entity.Villager
 import org.bukkit.inventory.ItemFlag
 import org.bukkit.potion.PotionEffectType
@@ -47,6 +53,15 @@ public fun gameModeCodec(): DaisyConfigCodec<GameMode> = parserBackedCodec("game
 public fun difficultyCodec(): DaisyConfigCodec<Difficulty> = parserBackedCodec("difficulty", DaisyDifficulties::parseOrNull)
 
 public fun blockFaceCodec(): DaisyConfigCodec<BlockFace> = parserBackedCodec("block face", DaisyBlockFaces::parseOrNull)
+
+public fun damageCauseCodec(): DaisyConfigCodec<EntityDamageEvent.DamageCause> =
+    parserBackedCodec("damage cause", DaisyDamageCauses::parseOrNull)
+
+public fun operationCodec(): DaisyConfigCodec<AttributeModifier.Operation> =
+    parserBackedCodec("operation", DaisyOperations::parseOrNull)
+
+public fun patternTypeCodec(): DaisyConfigCodec<PatternType> =
+    parserBackedCodec("pattern type", DaisyPatternTypes::parseOrNull)
 
 public fun particleCodec(): DaisyConfigCodec<Particle> = parserBackedCodec("particle", DaisyParticles::parseOrNull)
 

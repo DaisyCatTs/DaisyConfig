@@ -1,6 +1,7 @@
 package cat.daisy.config.daisycore
 
 import cat.daisy.config.DaisyConfigCodec
+import cat.daisy.config.DaisyConfigBundleHandle
 import cat.daisy.config.DaisyConfigHandle
 import cat.daisy.config.DaisyDecodeResult
 import cat.daisy.config.yaml.yamlConfigHandle
@@ -20,6 +21,20 @@ public fun DaisyTextConfig.asDaisyTextSource(): DaisyTextSource =
         override fun textList(key: String): List<String> = this@asDaisyTextSource.textList(key)
     }
 
+public fun DaisyConfigHandle<DaisyTextConfig>.asDaisyTextSource(): DaisyTextSource =
+    object : DaisyTextSource {
+        override fun text(key: String): String? = current.text(key)
+
+        override fun textList(key: String): List<String> = current.textList(key)
+    }
+
+public fun DaisyConfigBundleHandle<DaisyTextConfig>.asDaisyTextSource(): DaisyTextSource =
+    object : DaisyTextSource {
+        override fun text(key: String): String? = current.text(key)
+
+        override fun textList(key: String): List<String> = current.textList(key)
+    }
+
 public fun yamlTextConfigHandle(
     plugin: JavaPlugin,
     name: String = "lang.yml",
@@ -28,6 +43,24 @@ public fun yamlTextConfigHandle(
 public fun daisyTextConfigCodec(): DaisyConfigCodec<DaisyTextConfig> =
     DaisyConfigCodec { node, _ ->
         DaisyDecodeResult.Success(MapBackedDaisyTextConfig(flattenTextConfig(node)))
+    }
+
+public fun mergeTextConfigs(vararg configs: DaisyTextConfig): DaisyTextConfig =
+    object : DaisyTextConfig {
+        private val merged = configs.toList()
+
+        override fun text(key: String): String? =
+            merged
+                .asReversed()
+                .firstNotNullOfOrNull { it.text(key) }
+
+        override fun textList(key: String): List<String> =
+            merged
+                .asReversed()
+                .firstNotNullOfOrNull { config ->
+                    config.textList(key).takeIf { it.isNotEmpty() }
+                }
+                .orEmpty()
     }
 
 private class MapBackedDaisyTextConfig(

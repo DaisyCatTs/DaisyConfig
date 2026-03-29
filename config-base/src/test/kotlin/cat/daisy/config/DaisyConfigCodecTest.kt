@@ -46,6 +46,116 @@ class DaisyConfigCodecTest {
         assertTrue(result is DaisyDecodeResult.Failure)
         assertEquals("rows", result.errors.first().path)
     }
+
+    @Test
+    fun `object codec decodes nested section`() {
+        data class Feedback(
+            val sound: String,
+            val message: String,
+        )
+
+        data class Example(
+            val title: String,
+            val feedback: Feedback,
+        )
+
+        val feedbackCodec =
+            objectCodec {
+                Feedback(
+                    sound = required("sound", stringCodec()),
+                    message = defaulted("message", stringCodec(), "<green>Saved.</green>"),
+                )
+            }
+
+        val codec =
+            objectCodec {
+                Example(
+                    title = required("title", stringCodec()),
+                    feedback = section("feedback", feedbackCodec),
+                )
+            }
+
+        val node =
+            TestNode(
+                mapOf(
+                    "title" to "Profile",
+                    "feedback" to
+                        mapOf(
+                            "sound" to "entity_player_levelup",
+                        ),
+                ),
+            )
+
+        val result = codec.decode(node)
+        assertTrue(result is DaisyDecodeResult.Success)
+        assertEquals("Profile", result.value.title)
+        assertEquals("entity_player_levelup", result.value.feedback.sound)
+        assertEquals("<green>Saved.</green>", result.value.feedback.message)
+    }
+
+    @Test
+    fun `optional and defaulted sections work`() {
+        data class Section(
+            val title: String,
+        )
+
+        data class Example(
+            val optional: Section?,
+            val defaulted: Section,
+        )
+
+        val sectionCodec =
+            objectCodec {
+                Section(
+                    title = defaulted("title", stringCodec(), "Fallback"),
+                )
+            }
+
+        val codec =
+            objectCodec {
+                Example(
+                    optional = optionalSection("optional", sectionCodec),
+                    defaulted = defaultedSection("defaulted", sectionCodec, Section("Default Section")),
+                )
+            }
+
+        val result = codec.decode(TestNode(emptyMap<String, Any?>()))
+        assertTrue(result is DaisyDecodeResult.Success)
+        assertEquals(null, result.value.optional)
+        assertEquals("Default Section", result.value.defaulted.title)
+    }
+
+    @Test
+    fun `validation helpers return useful path errors`() {
+        data class Example(
+            val title: String,
+            val rows: Int,
+        )
+
+        val codec =
+            objectCodec {
+                Example(
+                    title = required("title", stringCodec()),
+                    rows = required("rows", intCodec()),
+                )
+            }.validate { config ->
+                DaisyValidation.notBlank("title", config.title) +
+                    DaisyValidation.intRange("rows", config.rows, 1, 6)
+            }
+
+        val result =
+            codec.decode(
+                TestNode(
+                    mapOf(
+                        "title" to "",
+                        "rows" to 9,
+                    ),
+                ),
+            )
+
+        assertTrue(result is DaisyDecodeResult.Failure)
+        assertEquals(listOf("title", "rows"), result.errors.map { it.path })
+    }
 }
 
 private class TestNode(

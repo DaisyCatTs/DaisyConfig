@@ -1,5 +1,8 @@
 package cat.daisy.config.daisycore
 
+import cat.daisy.config.DaisyConfigBundleHandle
+import cat.daisy.config.DaisyConfigHandle
+import cat.daisy.config.DaisyReloadResult
 import cat.daisy.config.DaisyConfigNode
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -21,6 +24,71 @@ class DaisyTextConfigTest {
         assertEquals("<green>Ready", result.value.text("messages.ready"))
         assertEquals(listOf("<gray>A", "<white>B"), result.value.textList("menus.profile.lore"))
     }
+
+    @Test
+    fun `merge text configs uses later configs as override`() {
+        val first =
+            object : DaisyTextConfig {
+                override fun text(key: String): String? = if (key == "messages.ready") "<gray>First</gray>" else null
+
+                override fun textList(key: String): List<String> = if (key == "menus.profile.lore") listOf("<gray>A") else emptyList()
+            }
+
+        val second =
+            object : DaisyTextConfig {
+                override fun text(key: String): String? = if (key == "messages.ready") "<green>Second</green>" else null
+
+                override fun textList(key: String): List<String> = if (key == "menus.profile.lore") listOf("<white>B") else emptyList()
+            }
+
+        val merged = mergeTextConfigs(first, second)
+        assertEquals("<green>Second</green>", merged.text("messages.ready"))
+        assertEquals(listOf("<white>B"), merged.textList("menus.profile.lore"))
+    }
+
+    @Test
+    fun `handle backed text source stays live across current changes`() {
+        val handle = MutableTextHandle(SimpleTextConfig(mapOf("messages.ready" to "<green>Ready</green>")))
+        val textSource = handle.asDaisyTextSource()
+
+        assertEquals("<green>Ready</green>", textSource.text("messages.ready"))
+
+        handle.current = SimpleTextConfig(mapOf("messages.ready" to "<blue>Reloaded</blue>"))
+
+        assertEquals("<blue>Reloaded</blue>", textSource.text("messages.ready"))
+    }
+
+    @Test
+    fun `bundle handle backed text source stays live across current changes`() {
+        val handle = MutableTextBundleHandle(SimpleTextConfig(mapOf("messages.ready" to "<green>Ready</green>")))
+        val textSource = handle.asDaisyTextSource()
+
+        assertEquals("<green>Ready</green>", textSource.text("messages.ready"))
+
+        handle.current = SimpleTextConfig(mapOf("messages.ready" to "<gold>Bundle Reloaded</gold>"))
+
+        assertEquals("<gold>Bundle Reloaded</gold>", textSource.text("messages.ready"))
+    }
+}
+
+private data class SimpleTextConfig(
+    private val values: Map<String, String>,
+) : DaisyTextConfig {
+    override fun text(key: String): String? = values[key]
+
+    override fun textList(key: String): List<String> = emptyList()
+}
+
+private class MutableTextHandle(
+    override var current: DaisyTextConfig,
+) : DaisyConfigHandle<DaisyTextConfig> {
+    override fun reload(): DaisyReloadResult<DaisyTextConfig> = DaisyReloadResult.Success(current)
+}
+
+private class MutableTextBundleHandle(
+    override var current: DaisyTextConfig,
+) : DaisyConfigBundleHandle<DaisyTextConfig> {
+    override fun reload(): DaisyReloadResult<DaisyTextConfig> = DaisyReloadResult.Success(current)
 }
 
 private class TestNode(

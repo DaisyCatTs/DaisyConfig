@@ -1,0 +1,9 @@
+icon: diamond sword
+feedback_sound: entity player levelup
+flags:
+  - hide enchants
+  - hide attributes
+enchantment: sharpness
+effect: slow falling
+sidebar_title: "<gradient:#7dd3fc:#c4b5fd>Profile</gradient>"
+

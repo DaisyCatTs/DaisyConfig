@@ -1,0 +1,7 @@
+name: DaisyConfigExample
+version: 0.1.0-SNAPSHOT
+main: cat.daisy.config.example.DaisyConfigExamplePlugin
+api-version: "1.21"
+authors: [Daisy]
+description: Shows a DaisyConfig typed config example.
+

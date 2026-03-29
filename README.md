@@ -33,9 +33,11 @@ repositories {
 }
 
 dependencies {
-    implementation("cat.daisy:DaisyConfig:0.1.0-SNAPSHOT")
+    implementation("cat.daisy:config-all:0.2.0")
 }
 ```
+
+Use `config-all` as the normal install unless you deliberately want a smaller module surface.
 
 ## Unmanaged YAML still exists
 

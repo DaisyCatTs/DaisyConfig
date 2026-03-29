@@ -1,0 +1,5 @@
+config_version: 1
+store:
+  rows: 3
+  icon: emerald
+  open_sound: block_ender_chest_open

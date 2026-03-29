@@ -1,25 +1,27 @@
 # DaisyConfig
 
-Typed YAML-first config loading for modern Paper plugins, with explicit codecs, reload-safe handles, nested sections, and DaisyCore-ready text packs.
+Typed YAML-first configuration for modern Paper plugins.
 
-## Why DaisyConfig
+DaisyConfig gives you:
 
-DaisyConfig removes the plugin-local config boilerplate that usually grows around:
+- explicit codecs instead of ad hoc `getString(...)` trees
+- reload-safe handles that keep the last good runtime value live
+- DaisySeries-backed config parsing for materials, sounds, item flags, enchantments, and potions
+- DaisyCore-ready text config adapters through `DaisyTextSource`
+- managed YAML files with versioning, missing-key merge, and ordered migrations
+- first-class module bundles for `settings.yml` + `lang.yml`
 
-- `getString(...)` and `getInt(...)` sprawl
-- nested section traversal
-- reload handling
-- validation
-- config-backed DaisyCore text wiring
-- DaisySeries-backed typed parsing from config
+## Modules
 
-## What it solves
+Phase 3 ships these modules:
 
-- typed config mapping
-- reload-safe config handles
-- clear validation failures
-- config-backed text sources for DaisyCore
-- DaisySeries-aware config codecs
+- `config-base`
+- `config-yaml`
+- `config-managed`
+- `config-modules`
+- `config-daisycore`
+- `config-all`
+- `example-plugin`
 
 ## Installation
 
@@ -35,181 +37,179 @@ dependencies {
 }
 ```
 
-## Quick example
+## Unmanaged YAML still exists
+
+The low-level YAML API remains available for simple files:
 
 ```kotlin
-data class ProfileUiConfig(
-    val icon: Material,
-    val feedback: FeedbackConfig,
-)
-
-data class FeedbackConfig(
-    val sound: Sound,
-    val message: String,
-)
-
-val feedbackCodec =
-    objectCodec {
-        FeedbackConfig(
-            sound = required("sound", soundCodec()),
-            message = defaulted("message", stringCodec(), "<green>Saved.</green>"),
-        )
-    }
-
-val profileUiCodec =
-    objectCodec {
-        ProfileUiConfig(
-            icon = required("icon", materialCodec()),
-            feedback = section("feedback", feedbackCodec),
-        )
-    }
-
-val handle = DaisyYaml.handle(File(dataFolder, "profile-ui.yml"), profileUiCodec)
-val config = handle.current
-config.feedback.message
+val handle = plugin.yamlConfigHandle("settings.yml", settingsCodec)
+val result = DaisyYaml.load(File(dataFolder, "settings.yml"), settingsCodec)
 ```
 
-## Reload-safe handles
-
-`DaisyConfigHandle<T>` always exposes the last good config through `current`.
-
-If reload fails:
-- the previous valid value stays live
-- errors are returned
-- runtime state does not switch to a half-decoded config
-
-## Nested sections and validation
-
-`DaisyFieldReader` now supports explicit section mapping:
+Bundle handles also still exist:
 
 ```kotlin
-val menuCodec =
-    objectCodec {
-        MenuConfig(
-            rows = defaulted("rows", intCodec(), 3),
-            profileSlot = defaulted("profile_slot", intCodec(), 13),
+val bundle =
+    plugin.yamlConfigBundleHandle {
+        FeatureBundle(
+            settings = file("settings.yml", settingsCodec),
+            lang = file("lang.yml", daisyTextConfigCodec()),
         )
-    }.validate { config ->
-        buildList {
-            addAll(DaisyValidation.intRange("menu.rows", config.rows, 1, 6))
-            addAll(
-                DaisyValidation.require(
-                    condition = config.profileSlot in 0 until (config.rows * 9),
-                    path = "menu.profile_slot",
-                    message = "Slot must be within the menu size.",
-                ),
-            )
+    }
+```
+
+## Managed YAML
+
+Managed YAML adds file lifecycle, version-aware migration, and missing-key merge on top of the unmanaged layer.
+
+```kotlin
+val settingsFile =
+    DaisyManagedYamlFile(
+        id = "settings",
+        path = "settings.yml",
+        codec = settingsCodec,
+        currentVersion = 2,
+        migrations = listOf(
+            DaisyYamlMigrations.move(1, 2, "spawn-delay", "spawn.delay"),
+        ),
+    )
+
+val handle = plugin.managedYamlConfigHandle(settingsFile)
+val config = handle.current
+```
+
+Managed lifecycle:
+
+1. create missing files from bundled defaults
+2. merge missing default keys without overwriting user values
+3. treat missing `config_version` as version `1`
+4. run ordered migrations up to `currentVersion`
+5. write changes to disk only when something actually changed
+6. decode into a typed runtime value
+
+If reload fails, the previous typed value stays live.
+
+## Managed reload results
+
+Managed handles return a report that explains what changed:
+
+```kotlin
+when (val result = handle.migrate()) {
+    is DaisyManagedReloadResult.Success -> {
+        logger.info("Merged keys: ${result.report.mergedMissingKeys}")
+        logger.info("Renamed keys: ${result.report.renamedKeys}")
+    }
+    is DaisyManagedReloadResult.Failure -> {
+        result.errors.forEach { error ->
+            logger.warning("${error.path}: ${error.message}")
         }
     }
+}
 ```
 
-Available section helpers:
+## Migration helpers
 
-- `section(...)`
-- `optionalSection(...)`
-- `defaultedSection(...)`
+Phase 3 includes helper migrations for common YAML changes:
 
-Validation helpers:
+- `DaisyYamlMigrations.rename(...)`
+- `DaisyYamlMigrations.move(...)`
+- `DaisyYamlMigrations.remove(...)`
+- `DaisyYamlMigrations.setDefault(...)`
 
-- `DaisyValidation.require(...)`
-- `DaisyValidation.notBlank(...)`
-- `DaisyValidation.intRange(...)`
+Migration chains must be ordered one version at a time. Skipped or duplicate chains are rejected.
 
-## Multi-file config bundles
+## Module bundles
 
-For real plugins, you usually own more than one file. DaisyConfig Phase 2 adds bundle orchestration without inventing a second config architecture.
+`config-modules` gives you first-class module conventions for:
+
+- `modules/<category>/<module>/settings.yml`
+- `modules/<category>/<module>/lang.yml`
 
 ```kotlin
-val featureBundle =
-    plugin.yamlConfigBundleHandle {
-        ProfileFeatureConfig(
-            ui = file("profile-ui.yml", profileUiCodec),
-            layout = file("profile-layout.yml", profileLayoutCodec),
+val registry =
+    DaisyModules.load(plugin) {
+        module(
+            DaisyModuleDefinition(
+                category = "commands",
+                module = "spawn",
+                settings =
+                    DaisyManagedYamlFile(
+                        id = "commands/spawn/settings",
+                        path = "modules/commands/spawn/settings.yml",
+                        codec = spawnSettingsCodec,
+                        currentVersion = 2,
+                        migrations = listOf(
+                            DaisyYamlMigrations.move(1, 2, "spawn-delay", "spawn.delay"),
+                        ),
+                    ),
+                lang =
+                    DaisyManagedYamlFile(
+                        id = "commands/spawn/lang",
+                        path = "modules/commands/spawn/lang.yml",
+                        codec = daisyTextConfigCodec(),
+                    ),
+            ),
         )
     }
+
+val spawn = registry.require<SpawnSettings>("commands", "spawn")
+val delay = spawn.current.settings.delaySeconds
+val textSource = spawn.textSource
 ```
 
-`DaisyConfigBundleHandle<T>` keeps one logical current value and preserves the last good state if a bundle reload fails.
+Module handles preserve bundle safety:
 
-## DaisySeries integration
-
-DaisyConfig includes first-class codecs for:
-
-- materials
-- sounds
-- item flags
-- enchantments
-- potion effects
-
-These codecs use DaisySeries rather than rebuilding parsing logic locally.
+- typed settings and lang reload together
+- the last good module value stays live if reload fails
+- migration reports are aggregated across both files
 
 ## DaisyCore text bridge
 
-`config-daisycore` provides:
+`config-daisycore` stays focused on the text bridge:
 
 - `DaisyTextConfig`
+- `daisyTextConfigCodec()`
 - `asDaisyTextSource()`
-- YAML-backed text config handles
 
-This is the clean path for config-backed DaisyCore messages, menus, sidebars, and tablists.
+DaisyConfig stores and loads data. DaisyCore still owns runtime rendering.
 
-DaisyConfig stores and loads text. DaisyCore renders it.
+DaisyConfig does **not** execute placeholders directly.
 
-You can also merge text packs and keep them live through bundle handles:
+## Lifesteal-style module layout
 
-```kotlin
-val textBundle =
-    plugin.yamlConfigBundleHandle {
-        mergeTextConfigs(
-            file("lang.yml", daisyTextConfigCodec()),
-            file("profile-text.yml", daisyTextConfigCodec()),
-        )
-    }
+Phase 3 is designed to replace plugin-local config services that manually manage:
 
-messages(textBundle.asDaisyTextSource())
-```
+- `settings.yml`
+- `lang.yml`
+- `modules/<category>/<module>/...`
+- `saveResource(...)`
+- version bumps
+- missing-key merge logic
 
-## Placeholder safety model
+That workflow now lives in DaisyConfig itself.
 
-DaisyConfig does **not** expand PlaceholderAPI directly.
+## Example plugin
 
-It only provides typed values and text-source data.
-If placeholder-aware rendering happens, it happens through DaisyCore's existing viewer-aware rendering model.
+See [`example-plugin`](./example-plugin) for a managed module example with:
 
-## Default resources
+- `commands/spawn`
+- `commands/warp`
+- `guis/store`
+- startup creation from bundled defaults
+- managed reload and migration reporting
+- DaisySeries-backed typed settings
+- DaisyCore-facing module text sources
 
-Phase 2 also adds a bulk helper for first-run plugin setup:
+## Tooling
 
-```kotlin
-ensureDefaultConfigResources(
-    "profile-ui.yml",
-    "profile-layout.yml",
-    "lang.yml",
-    "profile-text.yml",
-)
-```
+Recommended JDK: Java 21
 
-## IntelliJ Setup
-
-- Open the repo as a Gradle project in IntelliJ IDEA.
-- Use the checked-in Gradle wrapper.
-- Recommended JDK: Java 21.
-- Useful runs:
+Useful commands:
 
 ```bash
 ./gradlew.bat --no-daemon test
 ./gradlew.bat --no-daemon :example-plugin:compileKotlin
 ```
-
-## Example plugin
-
-See [`example-plugin`](./example-plugin) for a Paper example using:
-
-- nested config sections
-- bundle reloads across multiple files
-- merged text packs
-- DaisySeries codecs
-- DaisyCore menu/sidebar/tablist rendering
 
 ## Changelog and Migration
 

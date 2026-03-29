@@ -56,11 +56,30 @@ project(":config-yaml") {
     }
 }
 
+project(":config-managed") {
+    dependencies {
+        add("api", project(":config-base"))
+        add("api", project(":config-yaml"))
+        add("compileOnly", "io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
+        add("testImplementation", "io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
+    }
+}
+
+project(":config-modules") {
+    dependencies {
+        add("api", project(":config-managed"))
+        add("api", project(":config-daisycore"))
+        add("compileOnly", "io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
+        add("testImplementation", "io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
+    }
+}
+
 project(":config-daisycore") {
     dependencies {
         add("api", project(":config-yaml"))
         add("api", "com.github.DaisyCatTs:DaisyCore:0.1.0-SNAPSHOT")
         add("compileOnly", "io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
+        add("testImplementation", project(":config-managed"))
         add("testImplementation", "io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
     }
 }
@@ -69,6 +88,8 @@ project(":config-all") {
     dependencies {
         add("api", project(":config-base"))
         add("api", project(":config-yaml"))
+        add("api", project(":config-managed"))
+        add("api", project(":config-modules"))
         add("api", project(":config-daisycore"))
     }
 }

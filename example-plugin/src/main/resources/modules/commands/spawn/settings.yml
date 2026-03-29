@@ -1,0 +1,4 @@
+config_version: 2
+spawn:
+  delay: 3
+  bypass_permission: example.spawn.bypass

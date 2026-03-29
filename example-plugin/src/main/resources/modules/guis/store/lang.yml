@@ -1,0 +1,4 @@
+config_version: 1
+menus:
+  store:
+    title: "<gradient:#7dd3fc:#c4b5fd>Store</gradient>"

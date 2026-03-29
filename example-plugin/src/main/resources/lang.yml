@@ -1,4 +1,0 @@
-messages:
-  profile:
-    opening: "<green>Opened your config-driven profile.</green>"
-    reloaded: "<green>Reloaded profile-ui.yml, profile-layout.yml, lang.yml, and profile-text.yml.</green>"

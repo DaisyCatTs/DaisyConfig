@@ -1,0 +1,4 @@
+config_version: 2
+warp:
+  warmup_seconds: 2
+  max_warps: 5

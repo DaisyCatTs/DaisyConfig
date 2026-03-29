@@ -32,6 +32,8 @@ includeBuild("../DaisyCore") {
 include(
     "config-base",
     "config-yaml",
+    "config-managed",
+    "config-modules",
     "config-daisycore",
     "config-all",
     "example-plugin",

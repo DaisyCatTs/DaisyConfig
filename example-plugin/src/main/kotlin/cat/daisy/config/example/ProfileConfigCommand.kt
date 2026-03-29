@@ -17,17 +17,17 @@ class ProfileConfigCommand(
 
         player {
             val config = plugin.profileConfig.current
-            replyMm("<gradient:#7dd3fc:#c4b5fd>Icon</gradient>: ${DaisyMaterials.displayName(config.icon)} (${DaisyMaterials.key(config.icon)})")
-            replyMm("<gradient:#7dd3fc:#c4b5fd>Sound</gradient>: ${DaisySounds.displayName(config.feedbackSound)}")
-            replyMm("<gradient:#7dd3fc:#c4b5fd>Enchant</gradient>: ${DaisyEnchantments.displayName(config.enchantment)}")
-            replyMm("<gradient:#7dd3fc:#c4b5fd>Effect</gradient>: ${DaisyPotions.displayName(config.effect)}")
+            reply("<gradient:#7dd3fc:#c4b5fd>Icon</gradient>: ${DaisyMaterials.displayName(config.icon)} (${DaisyMaterials.key(config.icon)})")
+            reply("<gradient:#7dd3fc:#c4b5fd>Sound</gradient>: ${DaisySounds.displayName(config.feedbackSound)}")
+            reply("<gradient:#7dd3fc:#c4b5fd>Enchant</gradient>: ${DaisyEnchantments.displayName(config.enchantment)}")
+            reply("<gradient:#7dd3fc:#c4b5fd>Effect</gradient>: ${DaisyPotions.displayName(config.effect)}")
         }
 
         subcommand("reload") {
             player {
                 when (val result = plugin.profileConfig.reload()) {
-                    is DaisyReloadResult.Success -> replyMm("<green>Reloaded profile-ui.yml.</green>")
-                    is DaisyReloadResult.Failure -> replyMm("<red>Reload failed:</red> <gray>${result.errors.joinToString { "${it.path}: ${it.message}" }}</gray>")
+                    is DaisyReloadResult.Success -> reply("<green>Reloaded profile-ui.yml.</green>")
+                    is DaisyReloadResult.Failure -> reply("<red>Reload failed:</red> <gray>${result.errors.joinToString { "${it.path}: ${it.message}" }}</gray>")
                 }
             }
         }

@@ -86,6 +86,8 @@ These codecs use DaisySeries rather than rebuilding parsing logic locally.
 
 This is the clean path for config-backed DaisyCore messages, menus, sidebars, and tablists.
 
+DaisyConfig stores and loads text. DaisyCore renders it.
+
 ## Placeholder safety model
 
 DaisyConfig does **not** expand PlaceholderAPI directly.
@@ -117,4 +119,3 @@ See [`example-plugin`](./example-plugin) for a Paper example using DaisyConfig, 
 ## License
 
 MIT
-

@@ -38,7 +38,7 @@ subprojects {
     dependencies {
         add("implementation", "org.jetbrains.kotlin:kotlin-stdlib:2.3.20")
         add("testImplementation", "org.jetbrains.kotlin:kotlin-test:2.3.20")
-        add("testImplementation", "org.junit.jupiter:junit-jupiter:5.14.3")
+        add("testImplementation", "org.junit.jupiter:junit-jupiter:6.0.3")
     }
 
     tasks.withType<Test>().configureEach {

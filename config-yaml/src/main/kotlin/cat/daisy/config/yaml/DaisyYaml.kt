@@ -79,6 +79,10 @@ public fun JavaPlugin.ensureDefaultConfigResource(
     }
 }
 
+public fun JavaPlugin.ensureDefaultConfigResources(vararg resources: String) {
+    resources.forEach { resource -> ensureDefaultConfigResource(resource) }
+}
+
 private class YamlConfigNode(
     private val value: Any?,
 ) : DaisyConfigNode {

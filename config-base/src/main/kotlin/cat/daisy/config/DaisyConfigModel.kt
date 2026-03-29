@@ -6,6 +6,12 @@ public interface DaisyConfigHandle<T> {
     public fun reload(): DaisyReloadResult<T>
 }
 
+public interface DaisyConfigBundleHandle<T> {
+    public val current: T
+
+    public fun reload(): DaisyReloadResult<T>
+}
+
 public sealed interface DaisyReloadResult<T> {
     public data class Success<T>(
         val value: T,
@@ -22,6 +28,8 @@ public data class DaisyConfigError(
     val path: String,
     val message: String,
 )
+
+public fun DaisyConfigError.at(path: String): DaisyConfigError = copy(path = path)
 
 public data class DaisyConfigWarning(
     val path: String,
@@ -80,6 +88,22 @@ public interface DaisyFieldReader {
     ): T?
 
     public fun <T> defaulted(
+        name: String,
+        codec: DaisyConfigCodec<T>,
+        default: T,
+    ): T
+
+    public fun <T> section(
+        name: String,
+        codec: DaisyConfigCodec<T>,
+    ): T
+
+    public fun <T> optionalSection(
+        name: String,
+        codec: DaisyConfigCodec<T>,
+    ): T?
+
+    public fun <T> defaultedSection(
         name: String,
         codec: DaisyConfigCodec<T>,
         default: T,
@@ -174,6 +198,22 @@ private class DaisyFieldReaderImpl(
             }
         }
     }
+
+    override fun <T> section(
+        name: String,
+        codec: DaisyConfigCodec<T>,
+    ): T = required(name, codec)
+
+    override fun <T> optionalSection(
+        name: String,
+        codec: DaisyConfigCodec<T>,
+    ): T? = optional(name, codec)
+
+    override fun <T> defaultedSection(
+        name: String,
+        codec: DaisyConfigCodec<T>,
+        default: T,
+    ): T = defaulted(name, codec, default)
 }
 
 private data object DaisyConfigAbort : RuntimeException()

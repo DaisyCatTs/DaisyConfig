@@ -1,0 +1,13 @@
+menu:
+  rows: 3
+  profile_slot: 13
+  border_material: gray stained glass pane
+sidebar:
+  title: "<gradient:#7dd3fc:#c4b5fd>Profile</gradient>"
+  lines:
+    - "<gray>Config:</gray> <white>DaisyConfig</white>"
+    - "<gray>Values:</gray> <white>DaisySeries codecs</white>"
+    - "<gray>Render:</gray> <white>DaisyCore UI</white>"
+tablist:
+  header: "<gradient:#7dd3fc:#c4b5fd>Profile Center</gradient>"
+  footer: "<gray>Loaded from profile-layout.yml</gray>"
